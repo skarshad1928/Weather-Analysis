@@ -10,34 +10,37 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
-
-# ✅ Enable CORS (VERY IMPORTANT)
 CORS(app)
 
-# ---------------------------------
-# API Key & Location
-# ---------------------------------
 API_KEY = os.getenv("WEATHER_API_KEY")
 
-LAT, LON = 32.8546, -79.9748   # Change if needed
-
+# Charleston, South Carolina (North Atlantic coast)
+LAT, LON = 32.8546, -79.9748
 
 # ---------------------------------
-# Health Check Route
+# Cyclone flag (MANUAL / ASSUMED)
+# ---------------------------------
+def is_cyclone_in_north_atlantic():
+    """
+    NOTE:
+    There is no free API to detect nearest cyclone.
+    This flag represents cyclone presence in North Atlantic.
+    In real systems this comes from NOAA/NHC.
+    """
+    return True   # 🔁 change to False if no cyclone
+
+# ---------------------------------
+# Health check
 # ---------------------------------
 @app.route("/")
 def home():
     return jsonify({"status": "Weather API is running"})
 
-
 # ---------------------------------
-# Weather Endpoint
+# Weather API
 # ---------------------------------
-@app.route("/weather", methods=["GET"])
+@app.route("/weather")
 def weather():
-    if not API_KEY:
-        return jsonify({"error": "WEATHER_API_KEY not found"}), 500
-
     url = "https://api.openweathermap.org/data/2.5/weather"
     params = {
         "lat": LAT,
@@ -46,59 +49,57 @@ def weather():
         "units": "metric"
     }
 
-    try:
-        response = requests.get(url, params=params, timeout=10)
-        data = response.json()
+    r = requests.get(url, params=params, timeout=10)
+    data = r.json()
 
-        if response.status_code != 200 or "main" not in data:
-            return jsonify({"error": "Weather API failed"}), 500
-
-        return jsonify({
-            "temperature": data["main"]["temp"],
-            "humidity": data["main"]["humidity"],
-            "pressure": data["main"]["pressure"]
-        })
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
+    return jsonify({
+        "temperature": data["main"]["temp"],
+        "humidity": data["main"]["humidity"],
+        "pressure": data["main"]["pressure"],
+        "wind_direction": data["wind"].get("deg", 0)
+    })
 
 # ---------------------------------
-# Rain Probability Endpoint
+# Rain Probability Logic (YOUR RULES)
 # ---------------------------------
 @app.route("/rain", methods=["POST"])
 def rain():
     data = request.get_json()
 
-    if not data:
-        return jsonify({"error": "No JSON received"}), 400
-
-    temperature = data.get("temperature")
+    temp = data.get("temperature")
     humidity = data.get("humidity")
-
-    if temperature is None or humidity is None:
-        return jsonify({"error": "Missing temperature or humidity"}), 400
+    wind_deg = data.get("wind_direction")
 
     rain_chance = 0
 
-    # Rule 1: Humidity
+    # 1️⃣ Temperature rule
+    if temp > 16:
+        rain_chance += 25
+
+    # 2️⃣ Humidity rule
     if humidity > 75:
-        rain_chance += 23
+        rain_chance += 25
 
-    # Rule 2: Temperature
-    if temperature > 16:
-        rain_chance += 24
+    # 3️⃣ Wind from South (135°–225°)
+    if 135 <= wind_deg <= 225:
+        rain_chance += 8
 
-    # Safety cap
-    rain_chance = min(rain_chance, 100)
+    # 4️⃣ Cyclone in North Atlantic
+    if is_cyclone_in_north_atlantic():
+        rain_chance += 20
 
     return jsonify({
-        "rain": rain_chance
+        "rain_probability": rain_chance,
+        "logic": {
+            "temperature_rule": temp > 16,
+            "humidity_rule": humidity > 75,
+            "south_wind_rule": 135 <= wind_deg <= 225,
+            "cyclone_present": is_cyclone_in_north_atlantic()
+        }
     })
 
-
 # ---------------------------------
-# Run Server (Render needs this)
+# Run server
 # ---------------------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
