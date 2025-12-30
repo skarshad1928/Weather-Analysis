@@ -92,61 +92,59 @@
 </div>
 
 <script>
-const BASE_URL = "https://weather-analysis-qe4i.onrender.com";  // 🔴 CHANGE THIS
-let weatherCache = null;
+    const BASE_URL = "https://weather-analysis-qe4i.onrender.com";
+    let weatherCache = null;
 
-function getWeather() {
-    const output = document.getElementById("output");
-    output.className = "loading";
-    output.innerText = "Fetching weather data...";
+    function getWeather() {
+        const output = document.getElementById("output");
+        output.className = "loading";
+        output.innerText = "Fetching weather data...";
 
-    fetch(`${BASE_URL}/weather`)
+        fetch(`${BASE_URL}/weather`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    output.innerText = data.error;
+                    return;
+                }
+
+                weatherCache = data;
+                output.className = "";
+                output.innerHTML =
+                    `🌡 Temperature: ${data.temperature} °C<br>
+                     💧 Humidity: ${data.humidity} %<br>
+                     🔽 Pressure: ${data.pressure} hPa`;
+
+                document.getElementById("rainBtn").style.display = "block";
+            })
+            .catch(() => {
+                output.className = "";
+                output.innerText = "Unable to connect to backend.";
+            });
+    }
+
+    function getRainChance() {
+        if (!weatherCache) return;
+
+        fetch(`${BASE_URL}/rain`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(weatherCache)
+        })
         .then(response => response.json())
         .then(data => {
             if (data.error) {
-                output.innerText = data.error;
+                document.getElementById("output").innerHTML +=
+                    `<br>⚠ ${data.error}`;
                 return;
             }
 
-            weatherCache = data;
-
-            output.className = "";
-            output.innerHTML =
-                `🌡 Temperature: ${data.temperature} °C<br>
-                 💧 Humidity: ${data.humidity} %<br>
-                 🔽 Pressure: ${data.pressure} hPa`;
-
-            // Show rain button after weather loads
-            document.getElementById("rainBtn").style.display = "block";
-        })
-        .catch(() => {
-            output.className = "";
-            output.innerText = "Unable to connect to backend.";
-        });
-}
-
-function getRainChance() {
-    if (!weatherCache) return;
-
-    fetch(`${BASE_URL}/rain`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(weatherCache)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.error) {
             document.getElementById("output").innerHTML +=
-                `<br>⚠ ${data.error}`;
-            return;
-        }
-
-        document.getElementById("output").innerHTML +=
-            `<br>🌧 Chance of Rain: ${data.rain}%`;
-    });
-}
+                `<br>🌧 Chance of Rain: ${data.rain}%`;
+        });
+    }
 </script>
 
 </body>
