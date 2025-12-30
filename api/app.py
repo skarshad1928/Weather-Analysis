@@ -4,43 +4,16 @@ import os
 
 app = Flask(__name__)
 
-# ---------------------------------
-# Environment variable
-# ---------------------------------
 API_KEY = os.getenv("WEATHER_API_KEY")
-
-# Example location (change if needed)
 LAT, LON = 32.8546, -79.9748
 
 
-# ---------------------------------
-# Cyclone Detection – Bay of Bengal
-# ---------------------------------
-def is_there_any_storm_Bay_of_Bengal():
-    url = "https://dev.tropicalinfo.com/api/storms"
-    try:
-        r = requests.get(url, timeout=8)
-        if r.status_code != 200:
-            return False
-
-        storms = r.json()
-        for storm in storms:
-            lat = storm.get("lat")
-            lon = storm.get("lon")
-
-            if lat is not None and lon is not None:
-                if 5 <= lat <= 22 and 80 <= lon <= 100:
-                    return True
-        return False
-
-    except Exception:
-        return False
+@app.route("/")
+def home():
+    return jsonify({"status": "API is running"})
 
 
-# ---------------------------------
-# Weather Endpoint
-# ---------------------------------
-@app.route("/weather", methods=["GET"])
+@app.route("/weather")
 def weather():
     if not API_KEY:
         return jsonify({"error": "WEATHER_API_KEY missing"}), 500
@@ -53,58 +26,35 @@ def weather():
         "units": "metric"
     }
 
-    try:
-        r = requests.get(url, params=params, timeout=8)
-        data = r.json()
+    r = requests.get(url, params=params, timeout=8)
+    data = r.json()
 
-        if r.status_code != 200 or "main" not in data:
-            return jsonify({"error": "Weather API failed"}), 500
-
-        return jsonify({
-            "temperature": data["main"]["temp"],
-            "humidity": data["main"]["humidity"],
-            "pressure": data["main"]["pressure"]
-        })
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-# ---------------------------------
-# Rain Probability Endpoint
-# ---------------------------------
-@app.route("/rain", methods=["POST"])
-def rain():
-    data = request.get_json()
-
-    if not data:
-        return jsonify({"error": "No JSON received"}), 400
-
-    temperature = data.get("temperature")
-    humidity = data.get("humidity")
-
-    if temperature is None or humidity is None:
-        return jsonify({"error": "Missing temperature or humidity"}), 400
-
-    rain_chance = 0
-
-    # Rule-based logic
-    if humidity > 75:
-        rain_chance += 23
-
-    if temperature > 16:
-        rain_chance += 24
-
-    if is_there_any_storm_Bay_of_Bengal():
-        rain_chance += 52
+    if r.status_code != 200 or "main" not in data:
+        return jsonify({"error": "Weather API failed"}), 500
 
     return jsonify({
-        "rain": min(rain_chance, 100)
+        "temperature": data["main"]["temp"],
+        "humidity": data["main"]["humidity"],
+        "pressure": data["main"]["pressure"]
     })
 
 
-# ---------------------------------
-# Vercel entry point (DO NOT REMOVE)
-# ---------------------------------
-def handler(request, context):
-    return app(request, context)
+@app.route("/rain", methods=["POST"])
+def rain():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No JSON received"}), 400
+
+    rain_chance = 0
+
+    if data.get("humidity", 0) > 75:
+        rain_chance += 23
+    if data.get("temperature", 0) > 16:
+        rain_chance += 24
+
+    return jsonify({"rain": rain_chance})
+
+
+# 🔴 THIS IS THE CRITICAL PART FOR VERCEL
+def handler(environ, start_response):
+    return app(environ, start_response)
