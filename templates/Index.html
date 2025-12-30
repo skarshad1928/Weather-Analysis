@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Weather Information</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #eef3f8;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 700px;
+            margin: 60px auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        img {
+            width: 100%;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
+
+        p {
+            color: #444;
+            line-height: 1.6;
+            text-align: justify;
+        }
+
+        button {
+            display: block;
+            margin: 25px auto;
+            padding: 12px 30px;
+            font-size: 16px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        #output {
+            text-align: center;
+            font-weight: bold;
+            margin-top: 20px;
+            color: #2c3e50;
+        }
+
+        .loading {
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <img src="https://images.unsplash.com/photo-1501630834273-4b5604d2ee31" alt="Weather Image">
+
+    <h1>Weather Information</h1>
+
+    <p>
+        This interface demonstrates frontend interaction with a Flask backend.
+        Click the button below to fetch live temperature, humidity, and pressure
+        data from the server.
+    </p>
+
+    <!-- Weather Button -->
+    <button onclick="getWeather()">Get Weather Data</button>
+
+    <!-- Rain Button (Hidden initially) -->
+    <button id="rainBtn" onclick="getRainChance()" style="display:none;">
+        % Chance Of Raining
+    </button>
+
+    <div id="output">No data yet.</div>
+
+</div>
+
+<script>
+let weatherCache = null;
+
+function getWeather() {
+    const output = document.getElementById("output");
+    output.className = "loading";
+    output.innerText = "Fetching data...";
+
+    fetch("/weather")
+        .then(response => {
+            if (!response.ok) {
+                throw new Error("Weather API error");
+            }
+            return response.json();
+        })
+        .then(data => {
+            weatherCache = data;
+
+            output.className = "";
+            output.innerHTML =
+                `🌡 Temperature: ${data.temperature} °C<br>
+                 💧 Humidity: ${data.humidity} %<br>
+                 🔽 Pressure: ${data.pressure} hPa`;
+
+            // Show rain button only after weather is loaded
+            document.getElementById("rainBtn").style.display = "block";
+        })
+        .catch(() => {
+            output.className = "";
+            output.innerText = "Backend not connected.";
+        });
+}
+
+function getRainChance() {
+    if (!weatherCache) return;
+
+    fetch("/rain", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(weatherCache)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            document.getElementById("output").innerHTML +=
+                `<br>⚠ ${data.error}`;
+            return;
+        }
+
+        document.getElementById("output").innerHTML +=
+            `<br>🌧 Chance of Rain: ${data.rain}%`;
+    });
+}
+</script>
+
+</body>
+</html>
