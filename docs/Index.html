@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Weather Information</title>
+    <title>Weather Analysis</title>
 
     <style>
         body {
@@ -72,12 +72,11 @@
 
     <img src="https://images.unsplash.com/photo-1501630834273-4b5604d2ee31" alt="Weather Image">
 
-    <h1>Weather Information</h1>
+    <h1>Weather Analysis</h1>
 
     <p>
-        This interface demonstrates frontend interaction with a Flask backend.
-        Click the button below to fetch live temperature, humidity, and pressure
-        data from the server.
+        This application fetches live weather data from a Flask backend
+        and estimates the probability of rain using rule-based logic.
     </p>
 
     <!-- Weather Button -->
@@ -85,7 +84,7 @@
 
     <!-- Rain Button (Hidden initially) -->
     <button id="rainBtn" onclick="getRainChance()" style="display:none;">
-        % Chance Of Raining
+        % Chance of Rain
     </button>
 
     <div id="output">No data yet.</div>
@@ -93,21 +92,22 @@
 </div>
 
 <script>
+const BASE_URL = "https://YOUR_RENDER_BACKEND_URL";  // 🔴 CHANGE THIS
 let weatherCache = null;
 
 function getWeather() {
     const output = document.getElementById("output");
     output.className = "loading";
-    output.innerText = "Fetching data...";
+    output.innerText = "Fetching weather data...";
 
-    fetch("/weather")
-        .then(response => {
-            if (!response.ok) {
-                throw new Error("Weather API error");
-            }
-            return response.json();
-        })
+    fetch(`${BASE_URL}/weather`)
+        .then(response => response.json())
         .then(data => {
+            if (data.error) {
+                output.innerText = data.error;
+                return;
+            }
+
             weatherCache = data;
 
             output.className = "";
@@ -116,19 +116,19 @@ function getWeather() {
                  💧 Humidity: ${data.humidity} %<br>
                  🔽 Pressure: ${data.pressure} hPa`;
 
-            // Show rain button only after weather is loaded
+            // Show rain button after weather loads
             document.getElementById("rainBtn").style.display = "block";
         })
         .catch(() => {
             output.className = "";
-            output.innerText = "Backend not connected.";
+            output.innerText = "Unable to connect to backend.";
         });
 }
 
 function getRainChance() {
     if (!weatherCache) return;
 
-    fetch("/rain", {
+    fetch(`${BASE_URL}/rain`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
