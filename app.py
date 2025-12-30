@@ -1,4 +1,5 @@
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request
+from flask_cors import CORS
 import requests
 import os
 from dotenv import load_dotenv
@@ -10,41 +11,19 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# OpenWeather API Key
+# ✅ Enable CORS (VERY IMPORTANT)
+CORS(app)
+
+# ---------------------------------
+# API Key & Location
+# ---------------------------------
 API_KEY = os.getenv("WEATHER_API_KEY")
 
-# Location (you can change this)
-LAT, LON = 32.8546, -79.9748
+LAT, LON = 32.8546, -79.9748   # Change if needed
 
 
 # ---------------------------------
-# Cyclone Detection – Bay of Bengal
-# ---------------------------------
-def is_there_any_storm_Bay_of_Bengal():
-    url = "https://dev.tropicalinfo.com/api/storms"
-    try:
-        response = requests.get(url, timeout=10)
-        if response.status_code != 200:
-            return False
-
-        storms = response.json()
-        for storm in storms:
-            lat = storm.get("lat")
-            lon = storm.get("lon")
-
-            if lat is not None and lon is not None:
-                if 5 <= lat <= 22 and 80 <= lon <= 100:
-                    return True
-
-        return False
-
-    except Exception as e:
-        print("Cyclone API error:", e)
-        return False
-
-
-# ---------------------------------
-# Home (optional – API status)
+# Health Check Route
 # ---------------------------------
 @app.route("/")
 def home():
@@ -52,7 +31,7 @@ def home():
 
 
 # ---------------------------------
-# Weather API
+# Weather Endpoint
 # ---------------------------------
 @app.route("/weather", methods=["GET"])
 def weather():
@@ -85,7 +64,7 @@ def weather():
 
 
 # ---------------------------------
-# Rain Probability API
+# Rain Probability Endpoint
 # ---------------------------------
 @app.route("/rain", methods=["POST"])
 def rain():
@@ -110,10 +89,7 @@ def rain():
     if temperature > 16:
         rain_chance += 24
 
-    # Rule 3: Cyclone impact
-    if is_there_any_storm_Bay_of_Bengal():
-        rain_chance += 52
-
+    # Safety cap
     rain_chance = min(rain_chance, 100)
 
     return jsonify({
@@ -122,7 +98,7 @@ def rain():
 
 
 # ---------------------------------
-# Run Server (RENDER NEEDS THIS)
+# Run Server (Render needs this)
 # ---------------------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
